@@ -4,40 +4,49 @@ import tkinter as tk
 from tkinter import simpledialog, messagebox
 
 # === Main logic of plot building ===
-def solve_and_plot(eq1_str, eq2_str, x_min, x_max, y_min, y_max, steps=200):
+def solve_and_plot(eq1_str, eq2_str, x_min, x_max, y_min, y_max, steps=300):
     try:
         x_vals = np.linspace(x_min, x_max, steps)
         y_vals = np.linspace(y_min, y_max, steps)
         X, Y = np.meshgrid(x_vals, y_vals)
 
         def safe_eval(expr, x, y):
-            return eval(expr, {"__builtins__": None, "x": x, "y": y, "np": np, "sin": np.sin, "cos": np.cos, "exp": np.exp})
+            return eval(expr, {"__builtins__": None, "x": x, "y": y,
+                               "np": np, "sin": np.sin, "cos": np.cos, "exp": np.exp})
 
         Z1 = safe_eval(eq1_str, X, Y)
         Z2 = safe_eval(eq2_str, X, Y)
 
-        def plot_equation(Z, subplot_index):
+        def plot_fast(Z, subplot_index):
             plt.subplot(1, 2, subplot_index)
-            for i in range(Z.shape[0]):
-                for j in range(Z.shape[1]):
-                    if Z[i, j] > 0:
-                        plt.text(x_vals[j], y_vals[i], 'o', color='red', ha='center', va='center', fontsize=8)
-                    elif Z[i, j] < 0:
-                        plt.text(x_vals[j], y_vals[i], 'x', color='blue', ha='center', va='center', fontsize=8)
+            # Flat coordinates and masks
+            x_flat = X.flatten()
+            y_flat = Y.flatten()
+            z_flat = Z.flatten()
+
+            mask_pos = z_flat > 0
+            mask_neg = z_flat < 0
+
+            # Positive values: red circles
+            plt.scatter(x_flat[mask_pos], y_flat[mask_pos], color='red', marker='o', s=10, label='>0')
+            # Negative values: blue crosses
+            plt.scatter(x_flat[mask_neg], y_flat[mask_neg], color='blue', marker='x', s=10, label='<0')
+
             plt.xlabel('x')
             plt.ylabel('y')
             plt.axis('equal')
 
-        plt.figure(figsize=(14, 7))  # a little bit larger
-        plot_equation(Z1, 1)
-        plot_equation(Z2, 2)
+        # Graphing
+        plt.figure(figsize=(14, 7))
+        plot_fast(Z1, 1)
+        plot_fast(Z2, 2)
 
-        # Margin regulation
         plt.subplots_adjust(left=0.08, right=0.95, top=0.95, bottom=0.08, wspace=0.25)
         plt.show()
 
     except Exception as e:
         messagebox.showerror("Error", f"An error occurred during the calculation: {e}")
+
 
 
 # === GUI ===
