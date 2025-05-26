@@ -4,13 +4,12 @@ import tkinter as tk
 from tkinter import simpledialog, messagebox
 
 # === Main logic of plot building ===
-def solve_and_plot(eq1_str, eq2_str, x_min, x_max, y_min, y_max, steps=100):
+def solve_and_plot(eq1_str, eq2_str, x_min, x_max, y_min, y_max, steps=200):
     try:
         x_vals = np.linspace(x_min, x_max, steps)
         y_vals = np.linspace(y_min, y_max, steps)
         X, Y = np.meshgrid(x_vals, y_vals)
 
-        # Save equation solve
         def safe_eval(expr, x, y):
             return eval(expr, {"__builtins__": None, "x": x, "y": y, "np": np, "sin": np.sin, "cos": np.cos, "exp": np.exp})
 
@@ -22,22 +21,24 @@ def solve_and_plot(eq1_str, eq2_str, x_min, x_max, y_min, y_max, steps=100):
             for i in range(Z.shape[0]):
                 for j in range(Z.shape[1]):
                     if Z[i, j] > 0:
-                        plt.text(x_vals[j], y_vals[i], 'o', color='red', ha='center', va='center', fontsize=6)
+                        plt.text(x_vals[j], y_vals[i], 'o', color='red', ha='center', va='center', fontsize=8)
                     elif Z[i, j] < 0:
-                        plt.text(x_vals[j], y_vals[i], 'x', color='blue', ha='center', va='center', fontsize=6)
+                        plt.text(x_vals[j], y_vals[i], 'x', color='blue', ha='center', va='center', fontsize=8)
             plt.xlabel('x')
             plt.ylabel('y')
             plt.axis('equal')
 
-        # Plot building
-        plt.figure(figsize=(12, 6))
+        plt.figure(figsize=(14, 7))  # a little bit larger
         plot_equation(Z1, 1)
         plot_equation(Z2, 2)
-        plt.tight_layout()
+
+        # Margin regulation
+        plt.subplots_adjust(left=0.08, right=0.95, top=0.95, bottom=0.08, wspace=0.25)
         plt.show()
 
     except Exception as e:
         messagebox.showerror("Error", f"An error occurred during the calculation: {e}")
+
 
 # === GUI ===
 def launch_gui():
