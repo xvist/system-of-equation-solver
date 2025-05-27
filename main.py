@@ -1,158 +1,149 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import tkinter as tk
-from tkinter import messagebox, ttk
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from shapely.geometry import LineString
 from shapely.ops import unary_union
+import tkinter as tk
+from tkinter import ttk, messagebox
 
-def solve_and_plot(eq1_str, eq2_str, x_min, x_max, y_min, y_max, steps=300):
-    try:
-        x_vals = np.linspace(x_min, x_max, steps)
-        y_vals = np.linspace(y_min, y_max, steps)
-        X, Y = np.meshgrid(x_vals, y_vals)
-
-        def safe_eval(expr, x, y):
-            return eval(expr, {"__builtins__": None, "x": x, "y": y,
-                               "np": np, "sin": np.sin, "cos": np.cos, "exp": np.exp})
-
-        Z1 = safe_eval(eq1_str, X, Y)
-        Z2 = safe_eval(eq2_str, X, Y)
-
-        def plot_fast(Z, subplot_index):
-            plt.subplot(1, 2, subplot_index)
-            x_flat = X.flatten()
-            y_flat = Y.flatten()
-            z_flat = Z.flatten()
-
-            mask_pos = z_flat > 0
-            mask_neg = z_flat < 0
-
-            plt.scatter(x_flat[mask_pos], y_flat[mask_pos], color='red', marker='o', s=10)
-            plt.scatter(x_flat[mask_neg], y_flat[mask_neg], color='blue', marker='x', s=10)
-            plt.xlabel('x')
-            plt.ylabel('y')
-            plt.axis('equal')
-
-        plt.figure(figsize=(14, 7))
-        plot_fast(Z1, 1)
-        plot_fast(Z2, 2)
-        plt.subplots_adjust(left=0.08, right=0.95, top=0.95, bottom=0.08, wspace=0.25)
-        plt.show()
-
-        find_intersections(X, Y, Z1, Z2)
-
-    except Exception as e:
-        messagebox.showerror("Error", f"An error occurred during the calculation: {e}")
+def compute_values(f1, f2, x_range, y_range, step):
+    x = np.arange(*x_range, step)
+    y = np.arange(*y_range, step)
+    X, Y = np.meshgrid(x, y)
+    Z1 = eval(f1)
+    Z2 = eval(f2)
+    return X, Y, Z1, Z2
 
 def find_intersections(X, Y, Z1, Z2):
-    # Building contours
-    contours1 = plt.contour(X, Y, Z1, levels=[0], colors='red', linewidths=2)
-    contours2 = plt.contour(X, Y, Z2, levels=[0], colors='blue', linewidths=2)
+    fig, ax = plt.subplots()
+    c1 = ax.contour(X, Y, Z1, levels=[0], colors='none')
+    c2 = ax.contour(X, Y, Z2, levels=[0], colors='none')
+    plt.close(fig)
 
     def extract_lines(contour):
         lines = []
-        for collection in contour.collections:
-            for path in collection.get_paths():
-                v = path.vertices
-                if len(v) > 1:
-                    lines.append(LineString(v))
+        for seg in contour.allsegs[0]:
+            if len(seg) > 1:
+                lines.append(LineString(seg))
         return lines
 
-    lines1 = extract_lines(contours1)
-    lines2 = extract_lines(contours2)
+    lines1 = extract_lines(c1)
+    lines2 = extract_lines(c2)
 
-    curve1 = unary_union(lines1)
-    curve2 = unary_union(lines2)
+    merged1 = unary_union(lines1)
+    merged2 = unary_union(lines2)
 
-    intersections = curve1.intersection(curve2)
+    intersections = merged1.intersection(merged2)
+    return intersections
 
-    # Clearing the table
+def plot_graphs():
+    try:
+        x_min = float(x_min_entry.get())
+        x_max = float(x_max_entry.get())
+        y_min = float(y_min_entry.get())
+        y_max = float(y_max_entry.get())
+        step = float(step_entry.get())
+        func1 = func1_entry.get()
+        func2 = func2_entry.get()
+    except Exception as e:
+        messagebox.showerror("Input Error", str(e))
+        return
+
+    try:
+        X, Y, Z1, Z2 = compute_values(func1, func2, (x_min, x_max), (y_min, y_max), step)
+    except Exception as e:
+        messagebox.showerror("Calculation Error", f"Error evaluating functions:\n{e}")
+        return
+
     for row in table.get_children():
         table.delete(row)
 
-    plt.clf()
-    plt.contour(X, Y, Z1, levels=[0], colors='red', linewidths=2)
-    plt.contour(X, Y, Z2, levels=[0], colors='blue', linewidths=2)
+    fig, axs = plt.subplots(1, 2, figsize=(12, 5))
+    for ax, Z, title in zip(axs, [Z1, Z2], ["Equation 1", "Equation 2"]):
+        ax.set_xlabel("x")
+        ax.set_ylabel("y")
+        for i in range(Z.shape[0]):
+            for j in range(Z.shape[1]):
+                symbol = "o" if Z[i, j] > 0 else "x"
+                color = "red" if Z[i, j] > 0 else "blue"
+                ax.text(X[i, j], Y[i, j], symbol, color=color, ha='center', va='center', fontsize=8)
+        ax.contour(X, Y, Z, levels=[0], colors='black')
+        ax.set_title(title)
+        ax.set_xlim(x_min, x_max)
+        ax.set_ylim(y_min, y_max)
 
-    if intersections.is_empty:
-        messagebox.showinfo("Information", "No intersection points.")
-    else:
-        if intersections.geom_type == 'Point':
-            plt.plot(intersections.x, intersections.y, 'ko', markersize=6)
-            table.insert("", "end", values=(f"{intersections.x:.4f}", f"{intersections.y:.4f}"))
-        elif intersections.geom_type == 'MultiPoint':
-            for pt in intersections:
-                plt.plot(pt.x, pt.y, 'ko', markersize=6)
-                table.insert("", "end", values=(f"{pt.x:.4f}", f"{pt.y:.4f}"))
-
-    plt.xlabel('x')
-    plt.ylabel('y')
-    plt.title('Curve intersection points Z1=0 і Z2=0')
-    plt.axis('equal')
-    plt.grid(True)
+    plt.tight_layout()
     plt.show()
 
-# === GUI ===
+    intersections = find_intersections(X, Y, Z1, Z2)
 
-def run():
-    try:
-        eq1 = entry_eq1.get()
-        eq2 = entry_eq2.get()
-        x_min = float(entry_x_min.get())
-        x_max = float(entry_x_max.get())
-        y_min = float(entry_y_min.get())
-        y_max = float(entry_y_max.get())
+    fig2, ax2 = plt.subplots(figsize=(6, 6))
+    ax2.contour(X, Y, Z1, levels=[0], colors='red')
+    ax2.contour(X, Y, Z2, levels=[0], colors='blue')
 
-        solve_and_plot(eq1, eq2, x_min, x_max, y_min, y_max)
-    except Exception as e:
-        messagebox.showerror("Error", str(e))
+    if intersections.is_empty:
+        messagebox.showinfo("Result", "No intersection points found.")
+    elif intersections.geom_type == 'Point':
+        ax2.plot(intersections.x, intersections.y, 'ko')
+        table.insert("", "end", values=(f"{intersections.x:.4f}", f"{intersections.y:.4f}"))
+    elif intersections.geom_type == 'MultiPoint':
+        for pt in intersections.geoms:
+            ax2.plot(pt.x, pt.y, 'ko')
+            table.insert("", "end", values=(f"{pt.x:.4f}", f"{pt.y:.4f}"))
 
+    ax2.set_xlabel("x")
+    ax2.set_ylabel("y")
+    ax2.set_title("Intersection Points")
+    ax2.grid(True)
+    ax2.axis('equal')
+    plt.tight_layout()
+    plt.show()
+
+# GUI
 root = tk.Tk()
-root.title("System of equations: graphs and points of intersection")
+root.title("Equation System Visualizer")
 
-# Input fields
-tk.Label(root, text="Equation 1 (x, y):").grid(row=0, column=0, sticky="e")
-entry_eq1 = tk.Entry(root, width=40)
-entry_eq1.insert(0, "x**2 + y**2 - 4")
-entry_eq1.grid(row=0, column=1)
+tk.Label(root, text="Function 1 (use X, Y):").grid(row=0, column=0)
+func1_entry = tk.Entry(root, width=40)
+func1_entry.insert(0, "np.sin(X) + np.cos(Y)")
+func1_entry.grid(row=0, column=1)
 
-tk.Label(root, text="Equation 2 (x, y):").grid(row=1, column=0, sticky="e")
-entry_eq2 = tk.Entry(root, width=40)
-entry_eq2.insert(0, "y - x")
-entry_eq2.grid(row=1, column=1)
+tk.Label(root, text="Function 2 (use X, Y):").grid(row=1, column=0)
+func2_entry = tk.Entry(root, width=40)
+func2_entry.insert(0, "X**2 - Y")
+func2_entry.grid(row=1, column=1)
 
-tk.Label(root, text="x min").grid(row=2, column=0, sticky="e")
-entry_x_min = tk.Entry(root)
-entry_x_min.insert(0, "-5")
-entry_x_min.grid(row=2, column=1)
+tk.Label(root, text="x min:").grid(row=2, column=0)
+x_min_entry = tk.Entry(root)
+x_min_entry.insert(0, "-5")
+x_min_entry.grid(row=2, column=1)
 
-tk.Label(root, text="x max").grid(row=3, column=0, sticky="e")
-entry_x_max = tk.Entry(root)
-entry_x_max.insert(0, "5")
-entry_x_max.grid(row=3, column=1)
+tk.Label(root, text="x max:").grid(row=3, column=0)
+x_max_entry = tk.Entry(root)
+x_max_entry.insert(0, "5")
+x_max_entry.grid(row=3, column=1)
 
-tk.Label(root, text="y min").grid(row=4, column=0, sticky="e")
-entry_y_min = tk.Entry(root)
-entry_y_min.insert(0, "-5")
-entry_y_min.grid(row=4, column=1)
+tk.Label(root, text="y min:").grid(row=4, column=0)
+y_min_entry = tk.Entry(root)
+y_min_entry.insert(0, "-5")
+y_min_entry.grid(row=4, column=1)
 
-tk.Label(root, text="y max").grid(row=5, column=0, sticky="e")
-entry_y_max = tk.Entry(root)
-entry_y_max.insert(0, "5")
-entry_y_max.grid(row=5, column=1)
+tk.Label(root, text="y max:").grid(row=5, column=0)
+y_max_entry = tk.Entry(root)
+y_max_entry.insert(0, "5")
+y_max_entry.grid(row=5, column=1)
 
-btn = tk.Button(root, text="Build", command=run)
-btn.grid(row=6, column=0, columnspan=2, pady=10)
+tk.Label(root, text="Step:").grid(row=6, column=0)
+step_entry = tk.Entry(root)
+step_entry.insert(0, "0.3")
+step_entry.grid(row=6, column=1)
 
-# === Table for intersection points ===
-frame = tk.LabelFrame(root, text="Coordinates of intersection points", padx=5, pady=5)
-frame.grid(row=7, column=0, columnspan=2, padx=10, pady=10)
+tk.Button(root, text="Plot", command=plot_graphs).grid(row=7, column=0, columnspan=2, pady=10)
 
-table = ttk.Treeview(frame, columns=("x", "y"), show="headings", height=6)
+tk.Label(root, text="Intersection Points:").grid(row=8, column=0, columnspan=2)
+table = ttk.Treeview(root, columns=("x", "y"), show="headings", height=8)
 table.heading("x", text="x")
 table.heading("y", text="y")
-table.column("x", width=100)
-table.column("y", width=100)
-table.pack()
+table.grid(row=9, column=0, columnspan=2, padx=10, pady=10)
 
 root.mainloop()
