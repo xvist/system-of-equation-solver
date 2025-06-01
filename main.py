@@ -6,147 +6,182 @@ from shapely.ops import unary_union
 import tkinter as tk
 from tkinter import ttk, messagebox
 
-# ==== Appropriation and computing values from GUI ====
+# Function to compute values for the two equations on a grid of x and y
+# Takes expressions as strings and converts them using eval()
 def compute_values(f1, f2, x_range, y_range, step):
-    x = np.arange(*x_range, step)
-    y = np.arange(*y_range, step)
-    X, Y = np.meshgrid(x, y)
-    Z1 = eval(f1)
-    Z2 = eval(f2)
+    x = np.arange(*x_range, step)  # generate x values
+    y = np.arange(*y_range, step)  # generate y values
+    X, Y = np.meshgrid(x, y)       # create a 2D grid of coordinates
+    Z1 = eval(f1)  # evaluate first equation on the grid
+    Z2 = eval(f2)  # evaluate second equation on the grid
     return X, Y, Z1, Z2
 
-# ==== Finding intersection points ====
+# Function to find intersection points of the contour lines (where functions equal zero)
 def find_intersections(X, Y, Z1, Z2):
     fig, ax = plt.subplots()
-    c1 = ax.contour(X, Y, Z1, levels=[0], colors='none')
-    c2 = ax.contour(X, Y, Z2, levels=[0], colors='none')
-    plt.close(fig)
+    c1 = ax.contour(X, Y, Z1, levels=[0], colors='none')  # contour for first function
+    c2 = ax.contour(X, Y, Z2, levels=[0], colors='none')  # contour for second function
+    plt.close(fig)  # close the temporary figure
 
     def extract_lines(contour):
         lines = []
-        for seg in contour.allsegs[0]:
+        for seg in contour.allsegs[0]:  # get all contour segments at level 0
             if len(seg) > 1:
-                lines.append(LineString(seg))
+                lines.append(LineString(seg))  # convert segment to a LineString object
         return lines
 
     lines1 = extract_lines(c1)
     lines2 = extract_lines(c2)
 
+    # Combine all line segments for each equation
     merged1 = unary_union(lines1)
     merged2 = unary_union(lines2)
 
+    # Find intersection of the two sets of contour lines
     intersections = merged1.intersection(merged2)
     return intersections
 
-# ==== Plotting ====
+# Main plotting function triggered by button in GUI
 def plot_graphs():
     try:
-        x_min = float(x_min_entry.get())    # x_min value appropriation from GUI
-        x_max = float(x_max_entry.get())    # x_max value appropriation from GUI
-        y_min = float(y_min_entry.get())    # y_min value appropriation from GUI
-        y_max = float(y_max_entry.get())    # y_max value appropriation from GUI
-        step = float(step_entry.get())      # Step value appropriation from GUI
-        func1 = func1_entry.get()           # Function 1 appropriation from GUI
-        func2 = func2_entry.get()           # Function 2 appropriation from GUI
+        # Retrieve values from GUI input fields
+        x_min = float(x_min_entry.get())
+        x_max = float(x_max_entry.get())
+        y_min = float(y_min_entry.get())
+        y_max = float(y_max_entry.get())
+        step = float(step_entry.get())
+        func1 = func1_entry.get()
+        func2 = func2_entry.get()
     except Exception as e:
-        messagebox.showerror("Input Error", str(e))     # Handling possible errors
+        messagebox.showerror("Input Error", str(e))
         return
 
     try:
-        X, Y, Z1, Z2 = compute_values(func1, func2, (x_min, x_max), (y_min, y_max), step)   # Compute values
+        # Calculate function values over the grid
+        X, Y, Z1, Z2 = compute_values(func1, func2, (x_min, x_max), (y_min, y_max), step)
     except Exception as e:
-        messagebox.showerror("Calculation Error", f"Error evaluating functions:\n{e}")  # Handling possible errors
+        messagebox.showerror("Calculation Error", f"Error evaluating functions:\n{e}")
         return
 
+    # Clear previous table content
     for row in table.get_children():
-        table.delete(row)   # Cleaning table
+        table.delete(row)
 
-    fig, axs = plt.subplots(1, 2, figsize=(12, 5))      # Initializing fist figure with values "x" and "o"
-    for ax, Z, title in zip(axs, [Z1, Z2], ["Equation 1", "Equation 2"]):
-        ax.set_xlabel("x")      # Set Ox label
-        ax.set_ylabel("y")      # Set Oy label
+    # Clear previous canvas content
+    for widget in canvas_frame.winfo_children():
+        widget.destroy()
+
+    # Create 3 side-by-side subplots
+    fig, axs = plt.subplots(1, 3, figsize=(15, 5))
+
+    # Plot function values with symbols on the first two plots
+    for ax, Z, title in zip(axs[:2], [Z1, Z2], ["Equation 1", "Equation 2"]):
+        ax.set_xlabel("x")
+        ax.set_ylabel("y")
+        # Loop over grid and plot symbol depending on sign
         for i in range(Z.shape[0]):
             for j in range(Z.shape[1]):
-                symbol = "o" if Z[i, j] > 0 else "x"    # Assigning a symbol to a value depending on the sign
-                color = "red" if Z[i, j] > 0 else "blue"    # Assigning a color to a value depending on the sign
-                ax.text(X[i, j], Y[i, j], symbol, color=color, ha='center', va='center', fontsize=8)    # Symbol setup
-        ax.contour(X, Y, Z, levels=[0], colors='black')     # Set coordinate plane
-        ax.set_title(title)     # Set title
-        ax.set_xlim(x_min, x_max)   # Set x axes values
-        ax.set_ylim(y_min, y_max)   # Set y axes values
+                symbol = "o" if Z[i, j] > 0 else "x"
+                color = "red" if Z[i, j] > 0 else "blue"
+                ax.text(X[i, j], Y[i, j], symbol, color=color, ha='center', va='center', fontsize=6)
+        ax.contour(X, Y, Z, levels=[0], colors='black')  # draw the zero contour line
+        ax.set_title(title)
+        ax.set_xlim(x_min, x_max)
+        ax.set_ylim(y_min, y_max)
 
-    plt.tight_layout()
-    plt.show()  # Show figure 1
+    # Find intersections between contour lines
+    intersections = find_intersections(X, Y, Z1, Z2)
 
-    intersections = find_intersections(X, Y, Z1, Z2)    # Intersection finding
+    # Plot overlapping contours and intersections on third plot
+    ax3 = axs[2]
+    ax3.contour(X, Y, Z1, levels=[0], colors='red')
+    ax3.contour(X, Y, Z2, levels=[0], colors='blue')
+    ax3.set_xlabel("x")
+    ax3.set_ylabel("y")
+    ax3.set_title("Intersections")
+    ax3.grid(True)
+    ax3.axis('equal')
 
-    fig2, ax2 = plt.subplots(figsize=(6, 6))    # Initializing second figure
-    ax2.contour(X, Y, Z1, levels=[0], colors='red')     # Adding first graphic intersection
-    ax2.contour(X, Y, Z2, levels=[0], colors='blue')    # Adding second graphic intersection
-
+    # Mark and save intersection points into table
     if intersections.is_empty:
-        messagebox.showinfo("Result", "No intersection points found.")      # Message if no intersection points found
-    elif intersections.geom_type == 'Point':        # Main logic if graphs has only one intersection point
-        ax2.plot(intersections.x, intersections.y, 'ko')    # Adding points is graph
-        table.insert("", "end", values=(f"{intersections.x:.4f}", f"{intersections.y:.4f}"))    # Adding points in table
-    elif intersections.geom_type == 'MultiPoint':   # Main logic if graphs has multiple intersection points
+        messagebox.showinfo("Result", "No intersection points found.")
+    elif intersections.geom_type == 'Point':
+        ax3.plot(intersections.x, intersections.y, 'ko')
+        table.insert("", "end", values=(f"{intersections.x:.4f}", f"{intersections.y:.4f}"))
+    elif intersections.geom_type == 'MultiPoint':
         for pt in intersections.geoms:
-            ax2.plot(pt.x, pt.y, 'ko')  # Adding points is graph
-            table.insert("", "end", values=(f"{pt.x:.4f}", f"{pt.y:.4f}"))  # Adding points in table
+            ax3.plot(pt.x, pt.y, 'ko')
+            table.insert("", "end", values=(f"{pt.x:.4f}", f"{pt.y:.4f}"))
 
-    ax2.set_xlabel("x")     # Set Ox label for figure 2
-    ax2.set_ylabel("y")     # Set Oy label for figure 2
-    ax2.set_title("Intersection Points")    # Set title for figure 2
-    ax2.grid(True)      # Set grid
-    ax2.axis('equal')
-    plt.tight_layout()
-    plt.show()
+    fig.tight_layout()  # arrange layout of subplots
 
-# ==== GUI ====
-root = tk.Tk()  # Initialization window
-root.title("Equation System Visualizer")    # Select window name
+    # Render the figure inside Tkinter canvas
+    canvas = FigureCanvasTkAgg(fig, master=canvas_frame)
+    canvas.draw()
+    canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
-tk.Label(root, text="Function 1 (use X, Y):").grid(row=0, column=0) # Label for func 1
-func1_entry = tk.Entry(root, width=40)  # Textbox for func 1
-func1_entry.insert(0, "np.sin(X) + np.cos(Y)")  # Preinsert func 1
-func1_entry.grid(row=0, column=1)   # Func 1 textbox placement
+# === GUI Setup ===
+root = tk.Tk()
+root.title("Equation System Visualizer")
 
-tk.Label(root, text="Function 2 (use X, Y):").grid(row=1, column=0) # Label for func 1
-func2_entry = tk.Entry(root, width=40)  # Textbox for func 2
-func2_entry.insert(0, "X**2 - Y")   # Preinsert func 2
-func2_entry.grid(row=1, column=1)   # Func 2 textbox placement
+# Input fields for equations and ranges
+# Function 1 input
+tk.Label(root, text="Function 1 (use X, Y):").grid(row=0, column=0, sticky="e")
+func1_entry = tk.Entry(root, width=40)
+func1_entry.insert(0, "np.sin(X) + np.cos(Y)")
+func1_entry.grid(row=0, column=1)
 
-tk.Label(root, text="x min:").grid(row=2, column=0) # Label for x_min value
-x_min_entry = tk.Entry(root)    # Textbox for x_min value
-x_min_entry.insert(0, "-5") # Preinsert x_min
-x_min_entry.grid(row=2, column=1)   # x_min textbox placement
+# Function 2 input
+tk.Label(root, text="Function 2 (use X, Y):").grid(row=1, column=0, sticky="e")
+func2_entry = tk.Entry(root, width=40)
+func2_entry.insert(0, "X**2 - Y")
+func2_entry.grid(row=1, column=1)
 
-tk.Label(root, text="x max:").grid(row=3, column=0) # Label for x_max value
-x_max_entry = tk.Entry(root)    # Textbox for x_max value
-x_max_entry.insert(0, "5")  # Preinsert x_max
-x_max_entry.grid(row=3, column=1)   # x_max textbox placement
+# Axis limits and step size input
+tk.Label(root, text="x min:").grid(row=2, column=0, sticky="e")
+x_min_entry = tk.Entry(root)
+x_min_entry.insert(0, "-5")
+x_min_entry.grid(row=2, column=1)
 
-tk.Label(root, text="y min:").grid(row=4, column=0) # Label for y_min value
-y_min_entry = tk.Entry(root)    # Textbox for y_min value
-y_min_entry.insert(0, "-5") # Preinsert y_min
-y_min_entry.grid(row=4, column=1)   # y_min textbox placement
+tk.Label(root, text="x max:").grid(row=3, column=0, sticky="e")
+x_max_entry = tk.Entry(root)
+x_max_entry.insert(0, "5")
+x_max_entry.grid(row=3, column=1)
 
-tk.Label(root, text="y max:").grid(row=5, column=0) # Label for y_max value
-y_max_entry = tk.Entry(root)    # Textbox for y_max value
-y_max_entry.insert(0, "5")  # Preinsert y_max
-y_max_entry.grid(row=5, column=1)   # y_max textbox placement
+tk.Label(root, text="y min:").grid(row=4, column=0, sticky="e")
+y_min_entry = tk.Entry(root)
+y_min_entry.insert(0, "-5")
+y_min_entry.grid(row=4, column=1)
 
-tk.Label(root, text="Step:").grid(row=6, column=0)  # Label for step value
-step_entry = tk.Entry(root) # Textbox for step value
-step_entry.insert(0, "0.3") # Preinsert step
-step_entry.grid(row=6, column=1)    # Step textbox placement
+tk.Label(root, text="y max:").grid(row=5, column=0, sticky="e")
+y_max_entry = tk.Entry(root)
+y_max_entry.insert(0, "5")
+y_max_entry.grid(row=5, column=1)
 
-tk.Button(root, text="Plot", command=plot_graphs).grid(row=7, column=0, columnspan=2, pady=10)  # "Build" button placement
+tk.Label(root, text="Step:").grid(row=6, column=0, sticky="e")
+step_entry = tk.Entry(root)
+step_entry.insert(0, "0.3")
+step_entry.grid(row=6, column=1)
 
-tk.Label(root, text="Intersection Points:").grid(row=8, column=0, columnspan=2) # Table name and placement
-table = ttk.Treeview(root, columns=("x", "y"), show="headings", height=8)   # Columnarization
-table.heading("x", text="x")    # Column 1 label
-table.heading("y", text="y")    # Column 2 label
-table.grid(row=9, column=0, columnspan=2, padx=10, pady=10) # Table front
+# Button to trigger plotting
+tk.Button(root, text="Plot", command=plot_graphs).grid(row=7, column=0, columnspan=2, pady=10)
 
+# Frame to embed the Matplotlib figure
+canvas_frame = tk.Frame(root, width=800, height=400)
+canvas_frame.grid(row=8, column=0, columnspan=2, padx=10, pady=10, sticky="nsew")
+
+# Table to show coordinates of intersections
+tk.Label(root, text="Intersection Points:").grid(row=9, column=0, columnspan=2)
+table = ttk.Treeview(root, columns=("x", "y"), show="headings", height=8)
+table.heading("x", text="x")
+table.heading("y", text="y")
+table.grid(row=10, column=0, columnspan=2, padx=10, pady=10)
+
+# Configure adaptive resizing of grid and canvas
+root.columnconfigure(1, weight=1)
+root.rowconfigure(8, weight=1)
+canvas_frame.rowconfigure(0, weight=1)
+canvas_frame.columnconfigure(0, weight=1)
+
+# Start the GUI event loop
 root.mainloop()
