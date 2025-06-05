@@ -5,6 +5,8 @@ from shapely.geometry import LineString
 from shapely.ops import unary_union
 import tkinter as tk
 from tkinter import ttk, messagebox
+from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
+
 
 # Function to compute values for the two equations on a grid of x and y
 # Takes expressions as strings and converts them using eval()
@@ -119,6 +121,13 @@ def plot_graphs():
     # Render the figure inside Tkinter canvas
     canvas = FigureCanvasTkAgg(fig, master=canvas_frame)
     canvas.draw()
+
+    # Add zoom/pan toolbar
+    toolbar_frame = tk.Frame(canvas_frame)
+    toolbar_frame.pack(side=tk.TOP, fill=tk.X)
+    toolbar = NavigationToolbar2Tk(canvas, toolbar_frame)
+    toolbar.update()
+
     canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
 # === GUI Setup ===
