@@ -133,6 +133,7 @@ def plot_graphs():
 # === GUI Setup ===
 root = tk.Tk()
 root.title("Equation System Visualizer")
+root.state('zoomed')
 
 # Input fields for equations and ranges
 # Function 1 input
