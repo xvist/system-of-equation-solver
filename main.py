@@ -8,10 +8,10 @@ from tkinter import ttk, messagebox
 
 # Function to compute values for the two equations on a grid of x and y
 # Takes expressions as strings and converts them using eval()
-def compute_values(f1, f2, x_range, y_range, step):
-    x = np.arange(*x_range, step)  # generate x values
-    y = np.arange(*y_range, step)  # generate y values
-    X, Y = np.meshgrid(x, y)       # create a 2D grid of coordinates
+def compute_values(f1, f2, x_range, y_range, x_step, y_step):
+    x = np.arange(*x_range, x_step)  # generate x values
+    y = np.arange(*y_range, y_step)  # generate y values
+    X, Y = np.meshgrid(x, y)         # create a 2D grid of coordinates
     Z1 = eval(f1)  # evaluate first equation on the grid
     Z2 = eval(f2)  # evaluate second equation on the grid
     return X, Y, Z1, Z2
@@ -49,7 +49,8 @@ def plot_graphs():
         x_max = float(x_max_entry.get())
         y_min = float(y_min_entry.get())
         y_max = float(y_max_entry.get())
-        step = float(step_entry.get())
+        x_step = float(x_step_entry.get())
+        y_step = float(y_step_entry.get())
         func1 = func1_entry.get()
         func2 = func2_entry.get()
     except Exception as e:
@@ -58,7 +59,7 @@ def plot_graphs():
 
     try:
         # Calculate function values over the grid
-        X, Y, Z1, Z2 = compute_values(func1, func2, (x_min, x_max), (y_min, y_max), step)
+        X, Y, Z1, Z2 = compute_values(func1, func2, (x_min, x_max), (y_min, y_max), x_step, y_step)
     except Exception as e:
         messagebox.showerror("Calculation Error", f"Error evaluating functions:\n{e}")
         return
@@ -158,28 +159,33 @@ y_max_entry = tk.Entry(root)
 y_max_entry.insert(0, "5")
 y_max_entry.grid(row=5, column=1)
 
-tk.Label(root, text="Step:").grid(row=6, column=0, sticky="e")
-step_entry = tk.Entry(root)
-step_entry.insert(0, "0.3")
-step_entry.grid(row=6, column=1)
+tk.Label(root, text="x step:").grid(row=6, column=0, sticky="e")
+x_step_entry = tk.Entry(root)
+x_step_entry.insert(0, "0.3")
+x_step_entry.grid(row=6, column=1)
+
+tk.Label(root, text="y step:").grid(row=7, column=0, sticky="e")
+y_step_entry = tk.Entry(root)
+y_step_entry.insert(0, "0.3")
+y_step_entry.grid(row=7, column=1)
 
 # Button to trigger plotting
-tk.Button(root, text="Plot", command=plot_graphs).grid(row=7, column=0, columnspan=2, pady=10)
+tk.Button(root, text="Plot", command=plot_graphs).grid(row=8, column=0, columnspan=2, pady=10)
 
 # Frame to embed the Matplotlib figure
 canvas_frame = tk.Frame(root, width=800, height=400)
-canvas_frame.grid(row=8, column=0, columnspan=2, padx=10, pady=10, sticky="nsew")
+canvas_frame.grid(row=9, column=0, columnspan=2, padx=10, pady=10, sticky="nsew")
 
 # Table to show coordinates of intersections
-tk.Label(root, text="Intersection Points:").grid(row=9, column=0, columnspan=2)
+tk.Label(root, text="Intersection Points:").grid(row=10, column=0, columnspan=2)
 table = ttk.Treeview(root, columns=("x", "y"), show="headings", height=8)
 table.heading("x", text="x")
 table.heading("y", text="y")
-table.grid(row=10, column=0, columnspan=2, padx=10, pady=10)
+table.grid(row=11, column=0, columnspan=2, padx=10, pady=10)
 
 # Configure adaptive resizing of grid and canvas
 root.columnconfigure(1, weight=1)
-root.rowconfigure(8, weight=1)
+root.rowconfigure(9, weight=1)
 canvas_frame.rowconfigure(0, weight=1)
 canvas_frame.columnconfigure(0, weight=1)
 
